@@ -34,16 +34,14 @@ df = pd.read_csv(
 df = df.drop_duplicates()
 
 df = df.dropna(subset=['content'])
-types = {'content': str}
-pr_df = pd.read_csv(
-    'new_classifier/processed_df.csv',
-    encoding='utf8',
-    quoting=QUOTE_ALL,
-    dtype=types,
-    names=types.keys(),
-).fillna('')
-print(pr_df.head())
-contents = pr_df['content']
+
+contents = df['content'].apply(lambda x : x.lower())
+category_counts = df['category'].value_counts()
+categories_to_keep = category_counts[category_counts > 100].index
+df = df[df['category'].isin(categories_to_keep)]
+
+contents = df['content'].progress_apply(lambda x : ' '.join(token.lemma_ for token in nlp(x) if token.pos_ in ('NOUN', 'ADJ', 'ADV', 'VERB')))
+contents.to_csv("new_classifier/processed_df.csv", index=False, header=True, encoding='utf8', quoting=QUOTE_ALL)
 
 categories = df['category']
 
@@ -171,14 +169,14 @@ plt.ylabel("Score")
 plt.legend()
 plt.xticks(rotation=45)
 plt.tight_layout()
-plt.savefig('new_classifier/model_performance_comparison.png')
+plt.savefig('classifier/model_performance_comparison.png')
 plt.show()
 
 # Save all models, vectorizer, and label encoder
 for model_name, model in models.items():
-    file_name = f"new_classifier/{model_name.lower().replace(' ', '_')}.pkl"
+    file_name = f"classifier/{model_name.lower().replace(' ', '_')}.pkl"
     joblib.dump(model, file_name)
 
 # Save the vectorizer and encoder as well
-joblib.dump(vectorizer, f'new_classifier/vectorizer_v{version}.pkl')
-joblib.dump(encoder, f'new_classifier/label_encoder_v{version}.pkl')
+joblib.dump(vectorizer, f'classifier/vectorizer_v{version}.pkl')
+joblib.dump(encoder, f'classifier/label_encoder_v{version}.pkl')

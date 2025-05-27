@@ -1,227 +1,33 @@
-from csv import QUOTE_ALL
-from sklearn.model_selection import train_test_split
-import torch
-from transformers import RobertaTokenizer, RobertaForSequenceClassification, get_linear_schedule_with_warmup, RobertaConfig
-from torch.optim import AdamW
+import os, random
+from pathlib import Path
+import numpy as np, pandas as pd
+import torch, torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, hamming_loss
-import pandas as pd
-import os
-import numpy as np
-from tqdm import tqdm
-import torch.nn.functional as F
+from transformers import (BertTokenizer, BertForSequenceClassification,
+                          BertConfig, get_linear_schedule_with_warmup)
+from torch.optim import AdamW
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score, precision_score, recall_score, hamming_loss
 import matplotlib.pyplot as plt
-import random
+from tqdm import tqdm
+from csv import QUOTE_ALL
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
-
-def set_seed(seed: int):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-# Custom function to read CSV files
-def read_csv(file_path: str, types: dict[str, type], header: bool = False) -> pd.DataFrame:
-    header = 0 if header else None
-    df = pd.read_csv(file_path, encoding='utf8', quoting=QUOTE_ALL, dtype=types, header=header, names=types.keys()).reset_index(drop=True)
-    return df.dropna(subset=types.keys())
-
-# Dataset class for multilabel data
-class PropagandaDataset(Dataset):
-    def __init__(self, texts: list[str], labels: np.ndarray, tokenizer, max_len):
-        self.texts = texts
-        self.labels = labels
-        self.tokenizer = tokenizer
-        self.max_len = max_len
-
-    def __len__(self):
-        return len(self.texts)
-
-    def __getitem__(self, idx):
-        text = self.texts[idx]
-        label = self.labels[idx]
-
-        encoding = self.tokenizer.encode_plus(
-            text,
-            truncation=True,
-            add_special_tokens=True,
-            max_length=self.max_len,
-            padding='max_length',
-            return_attention_mask=True,
-            return_tensors='pt'
-        )
-        return {
-            'input_ids': encoding['input_ids'].flatten(),
-            'attention_mask': encoding['attention_mask'].flatten(),
-            'labels': torch.tensor(label, dtype=torch.float)
-        }
-
-# Function to train the model with gradient accumulation
-def train_epoch(model, data_loader, optimizer, device, scheduler, clip_value=1.0):
-    model.train()
-    losses = []
-    total_correct_predictions = 0
-    total_samples = 0
-    optimizer.zero_grad()
-
-    for step, batch in enumerate(tqdm(data_loader)):
-        input_ids = batch['input_ids'].to(device)
-        attention_mask = batch['attention_mask'].to(device)
-        labels = batch['labels'].to(device)
-
-        outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-        logits = outputs.logits
-        loss = focal_loss(logits, labels, alpha=alpha.to(device), gamma=2.0)
-
-        preds = torch.sigmoid(logits) > 0.5
-        total_correct_predictions += (preds == labels).sum().item()
-        total_samples += labels.numel()
-
-        loss.backward()
-
-        if (step + 1) % GRADIENT_ACCUMULATION_STEPS == 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
-            optimizer.step()
-            scheduler.step()
-            optimizer.zero_grad()
-
-        losses.append(loss.item())
-
-    accuracy = total_correct_predictions / total_samples
-    return accuracy, np.mean(losses)
-
-def eval(func, labels_array, preds_array):
-    macro = round(func(labels_array, preds_array, average="macro"), 4)
-    per_label = func(labels_array, preds_array, average=None)
-    return (macro, per_label)
-
-def evaluate(model, data_loader, device, mode="Evaluation"):
-    model.eval()
-    all_preds = []
-    all_labels = []
-    losses = []
-
-    with torch.no_grad():
-        for batch in tqdm(data_loader, desc=mode):
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
-
-            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-            logits = outputs.logits
-            loss = focal_loss(logits, labels, alpha=alpha.to(device), gamma=2.0)
-
-            preds = (torch.sigmoid(logits) > 0.5).long()
-            all_preds.append(preds.cpu().numpy())
-            all_labels.append(labels.cpu().numpy())
-
-            losses.append(loss.item())
-
-    labels_array = np.vstack(all_labels)
-    preds_array = np.vstack(all_preds)
-
-    hamming = hamming_loss(labels_array, preds_array)
-
-    f1 = eval(f1_score, labels_array, preds_array)
-    precision = eval(precision_score, labels_array, preds_array)
-    recall = eval(recall_score, labels_array, preds_array)
-
-    subset_accuracy = np.mean((labels_array == preds_array).astype(float), axis=0)
-    avg_loss = np.mean(losses)
-
-    return hamming, f1, precision, recall, subset_accuracy, avg_loss
-
-
-def train(train_loader, val_loader, scheduler, optimizer):
-    # best_loss = float('inf')
-    best_loss = 0.2
-    patience_counter = 0
-    train_metrics = []
-    val_metrics = []
-
-    for epoch in range(EPOCHS):
-        print(f"Epoch {epoch + 1}/{EPOCHS}")
-
-        train_acc, train_loss = train_epoch(model, train_loader, optimizer, device, scheduler)
-        train_metrics.append((train_acc, train_loss))
-        print(f"Train loss: {train_loss:.4f}, accuracy: {train_acc:.4f}")
-
-        val_hamming, val_f1, val_precision, val_recall, val_accuracy, val_loss = evaluate(model, val_loader, device, mode="Validation")
-        val_metrics.append((val_hamming, val_f1, val_precision, val_recall, val_loss))
-        print(f"Validation accuracy: {val_accuracy}, Validation loss: {val_loss:.4f}, Hamming Loss: {val_hamming:.4f}, F1: {val_f1}, Precision: {val_precision}, Recall: {val_recall}")
-
-        if val_loss < best_loss + 0.001:
-        # if val_hamming < best_loss:
-            patience_counter = 0
-            model.save_pretrained(save_directory)
-            tokenizer.save_pretrained(save_directory)
-            print("Saved best model!")
-            best_loss = min(val_loss, best_loss)
-            # best_loss = val_hamming
-        else:
-            patience_counter += 1
-            if patience_counter >= PATIENCE:
-                print("Early stopping triggered!")
-                break
-
-    return train_metrics, val_metrics
-
-
-def focal_loss(logits, targets, alpha=None, gamma=2.0, reduction='mean'):
-    BCE_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
-    pt = torch.exp(-BCE_loss)  # pt = sigmoid(logits) if label == 1 else 1 - sigmoid(logits)
-    if alpha is not None:
-        alpha = alpha.to(logits.device)
-        alpha_factor = alpha * targets + (1 - alpha) * (1 - targets)
-        loss = alpha_factor * (1 - pt) ** gamma * BCE_loss
-    else:
-        loss = (1 - pt) ** gamma * BCE_loss
-    return loss.mean() if reduction == 'mean' else loss.sum()
-
-def visualize(train_metrics, val_metrics):
-    train_acc, train_loss = zip(*train_metrics)
-    val_hamming, val_f1, val_precision, val_recall, val_loss = zip(*val_metrics)
-
-    plt.figure(figsize=(14, 8))
-
-    plt.subplot(1, 2, 1)
-    plt.plot(train_acc, label='Train Accuracy')
-    plt.xlabel('Epoch')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    plt.title('Train Accuracy')
-
-    plt.subplot(1, 2, 2)
-    plt.plot(train_loss, label='Train Loss')
-    plt.plot(val_loss, label='Validation Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.title('Loss over Epochs')
-
-    plt.tight_layout()
-    plt.savefig(f'{save_directory}/metrics_roberta_multilabel.png')
-    plt.show()
-
-set_seed(42)
-
-# DROPOUT = 0.075
-DROPOUT = 0
-BATCH_SIZE = 8
-GRADIENT_ACCUMULATION_STEPS = 8
+# Config & hyperparameters
+SEED = 42
+MODEL_NAME = 'Geotrend/bert-base-uk-cased'
+DROPOUT = 0.0
+BATCH_SIZE = 16
+GRAD_ACC = 8
 EPOCHS = 100
 PATIENCE = 2
 MAX_LEN = 128
-LEARNING_RATE = 5e-6
+LR = 5e-6
 WARMUP_STEPS = 50
 WEIGHT_DECAY = 0.0125
+SAVE_DIR = Path('_propaganda_multilabel_model')
+DATA_FILE = r'M:\Personal\SE\bachelors\python\processed_propaganda\propaganda_with_examples_headlines_v11-170408_probably_final_removed_v2.csv'
 
-dir = 'propaganda_dataset_v2/'
-
-types = {
+TYPES = {
     "headline": str,
     "Fearmongering": int,
     "Doubt Casting": int,
@@ -237,84 +43,139 @@ types = {
     "Conspiracy Theory": int,
     "Oversimplification": int,
 }
+REMOVE_COLS = {'Slogan', 'Scapegoating', 'Common Man'}
 
-columns_to_remove = {
-    "Slogan",
-    "Scapegoating",
-    "Common Man"
-}
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f'Using device: {device}')
 
-df = read_csv(fr'M:\Personal\SE\bachelors\python\processed_propaganda\propaganda_with_examples_headlines_v11-170408_probably_final_removed.csv', types, header=True)
-df.drop(columns=columns_to_remove, inplace=True, errors='ignore')
-types = {col: int for col in df.columns if col not in columns_to_remove}
-train_df, val_df = train_test_split(
-    df,
-    test_size=0.3,
-    random_state=42,
-)
-test_df, val_df = train_test_split(
-    val_df,
-    test_size=0.5,
-    random_state=42,
-)
-# train_df = read_csv(f'{dir}train.csv', types)
-# val_df = read_csv(f'{dir}val.csv', types)
-
-total_samples = len(train_df)
-label_columns = list(types.keys())[1:]  # exclude 'headline'
-label_counts = train_df[label_columns].sum().values.astype(np.float32)
-alpha = torch.tensor(1.0 - (label_counts / total_samples), dtype=torch.float)
+def set_seed(seed=SEED):
+    random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True; torch.backends.cudnn.benchmark = False
 
 
-save_directory = f'new_dataset_base_wechsel_v2_from_scratch_propaganda_multilabel_model_v2_more_removed_columns'
-os.makedirs(save_directory, exist_ok=True)
+def read_and_prepare(path):
+    df = pd.read_csv(path, encoding='utf8', quoting=QUOTE_ALL, dtype=TYPES, names=list(TYPES.keys()), header=0)
+    df = df.dropna().drop(columns=REMOVE_COLS, errors='ignore').reset_index(drop=True)
+    return df.sample(frac=1, random_state=SEED)
 
-MODEL_NAME = 'benjamin/roberta-base-wechsel-ukrainian'
-
-config = RobertaConfig.from_pretrained(MODEL_NAME, num_labels=len(types.keys())-1, attention_probs_dropout_prob=DROPOUT, hidden_dropout_prob=DROPOUT)
-tokenizer = RobertaTokenizer.from_pretrained(MODEL_NAME)
-model = RobertaForSequenceClassification.from_pretrained(MODEL_NAME, config=config).to(device)
-
-
-def get_loader(df: pd.DataFrame, content_column, label_columns, tokenizer, max_len, batch_size):
-    labels = df[label_columns].values
-    dataset = PropagandaDataset(df[content_column].tolist(), labels, tokenizer, max_len)
-    return DataLoader(dataset, batch_size=batch_size)
-
-# Create datasets and data loaders
-label_columns = list(types.keys())[1:]
-train_loader = get_loader(train_df, 'headline', label_columns, tokenizer, MAX_LEN, BATCH_SIZE)
-val_loader = get_loader(val_df, 'headline', label_columns, tokenizer, MAX_LEN, BATCH_SIZE)
-
-# Optimizer and learning rate scheduler
-optimizer = AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-total_steps = len(train_loader) * EPOCHS
-scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=WARMUP_STEPS, num_training_steps=total_steps)
-
-train_metrics, val_metrics = train(train_loader, val_loader, scheduler, optimizer)
-visualize(train_metrics, val_metrics)
+class PropagandaDataset(Dataset):
+    def __init__(self, texts, labels, tokenizer):
+        self.texts, self.labels = texts, labels
+        self.tokenizer = tokenizer
+    def __len__(self):
+        return len(self.texts)
+    def __getitem__(self, idx):
+        enc = self.tokenizer(
+            self.texts[idx], truncation=True, padding='max_length',
+            max_length=MAX_LEN, return_tensors='pt'
+        )
+        batch = {k: v.squeeze(0).to(device) for k, v in enc.items()}
+        batch['labels'] = torch.tensor(self.labels[idx], dtype=torch.float, device=device)
+        return batch
 
 
-# Create a DataLoader for the test set
-test_loader = get_loader(test_df, 'headline', label_columns, tokenizer, MAX_LEN, BATCH_SIZE)
+def get_loader(df, label_cols, tokenizer):
+    labels = df[label_cols].values.astype(np.float32)
+    ds = PropagandaDataset(df.headline.tolist(), labels, tokenizer)
+    return DataLoader(ds, batch_size=BATCH_SIZE)
 
-# Evaluate the model on the test set
-print("Evaluating on the test set...")
-test_hamming, test_f1, test_precision, test_recall, test_accuracy, test_loss = evaluate(model, test_loader, device, mode="Testing")
 
-# Print test results
-print(f"Test loss: {test_loss:.4f}")
-print(f"Test accuracy: {test_accuracy}")
-print(f"Hamming Loss: {test_hamming:.4f}")
-print(f"F1-Score: {test_f1}")
-print(f"Precision: {test_precision}")
-print(f"Recall: {test_recall}")
+def focal_loss(logits, targets, alpha, gamma=2.0):
+    bce = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
+    pt = torch.exp(-bce)
+    a = alpha.to(logits.device)
+    factor = a * targets + (1 - a) * (1 - targets)
+    loss = factor * (1 - pt)**gamma * bce
+    return loss.mean()
 
-# Save test results to a file
-with open(f'{save_directory}/test_results.txt', 'w') as f:
-    f.write(f"Test loss: {test_loss:.4f}\n")
-    f.write(f"Test accuracy: {test_accuracy}\n")
-    f.write(f"Hamming Loss: {test_hamming:.4f}\n")
-    f.write(f"F1-Score: {test_f1}\n")
-    f.write(f"Precision: {test_precision}\n")
-    f.write(f"Recall: {test_recall}\n")
+
+def run_epoch(model, loader, optimizer=None, scheduler=None, train=False, desc='Eval'):
+    model.train() if train else model.eval()
+    total_loss, correct, total = 0., 0, 0
+    all_preds, all_labels = [], []
+    ctx = torch.enable_grad() if train else torch.no_grad()
+    for step, batch in enumerate(tqdm(loader, desc=desc)):
+        with ctx:
+            out = model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'])
+            loss = focal_loss(out.logits, batch['labels'], alpha)
+            if train:
+                loss.backward()
+                if (step + 1) % GRAD_ACC == 0:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                    optimizer.step(); scheduler.step(); optimizer.zero_grad()
+        total_loss += loss.item()
+        preds = (torch.sigmoid(out.logits)>0.5).long().cpu().numpy()
+        labels = batch['labels'].long().cpu().numpy()
+        all_preds.append(preds); all_labels.append(labels)
+        correct += (preds == labels).sum(); total += labels.size
+    preds = np.vstack(all_preds); labels = np.vstack(all_labels)
+    acc = correct/total
+    ham = hamming_loss(labels, preds)
+    f1 = f1_score(labels, preds, average='macro')
+    prec = precision_score(labels, preds, average='macro')
+    rec = recall_score(labels, preds, average='macro')
+    print(f"{desc:<5} loss {total_loss/len(loader):.4f} acc {acc:.4f} hamming {ham:.4f} f1 {f1:.4f} precision {prec:.4f} recall {rec:.4f}")
+    return total_loss/len(loader), acc, ham, f1, prec, rec
+
+
+def plot_metrics(train_hist, val_hist):
+    epochs = range(1, len(train_hist)+1)
+    tr_loss, tr_acc = zip(*train_hist)
+    val_loss, val_acc = zip(*val_hist)
+    fig, axs = plt.subplots(1,2,figsize=(12,5))
+    axs[0].plot(epochs, tr_acc, label='Train Acc'); axs[0].plot(epochs, val_acc, label='Val Acc')
+    axs[0].set(title='Accuracy', xlabel='Epoch', ylabel='Acc'); axs[0].legend()
+    axs[1].plot(epochs, tr_loss, label='Train Loss'); axs[1].plot(epochs, val_loss, label='Val Loss')
+    axs[1].set(title='Loss', xlabel='Epoch', ylabel='Loss'); axs[1].legend()
+    fig.tight_layout(); fig.savefig(SAVE_DIR/'metrics.png'); plt.show()
+
+
+def main():
+    set_seed()
+    SAVE_DIR.mkdir(exist_ok=True)
+    df = read_and_prepare(DATA_FILE)
+    label_cols = [c for c in df.columns if c != 'headline']
+    total = len(df)
+    counts = df[label_cols].sum().values.astype(np.float32)
+    global alpha
+    alpha = torch.tensor(1.0 - (counts/total), dtype=torch.float)
+
+    train_df, temp = train_test_split(df, test_size=0.3, random_state=SEED)
+    val_df, test_df = train_test_split(temp, test_size=0.5, random_state=SEED)
+
+    cfg = BertConfig.from_pretrained(MODEL_NAME, num_labels=len(label_cols),
+                                     attention_probs_dropout_prob=DROPOUT,
+                                     hidden_dropout_prob=DROPOUT)
+    tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
+    model = BertForSequenceClassification.from_pretrained(MODEL_NAME, config=cfg).to(device)
+
+    train_loader = get_loader(train_df, label_cols, tokenizer)
+    val_loader   = get_loader(val_df,   label_cols, tokenizer)
+
+    optimizer = AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+    steps = len(train_loader)*EPOCHS
+    scheduler = get_linear_schedule_with_warmup(optimizer, WARMUP_STEPS, steps)
+
+    train_hist, val_hist = [], []
+    best_loss, patience = float('inf'), 0
+    for ep in range(1, EPOCHS+1):
+        print(f"Epoch {ep}/{EPOCHS}")
+        tr = run_epoch(model, train_loader, optimizer, scheduler, train=True, desc='Train')
+        va = run_epoch(model, val_loader,   desc='Val')
+        train_hist.append((tr[0], tr[1])); val_hist.append((va[0], va[1]))
+        if not best_loss or va[0] > best_loss:
+            best_loss, patience = va[0], 0
+            model.save_pretrained(SAVE_DIR); tokenizer.save_pretrained(SAVE_DIR)
+            print('Saved best model!')
+        else:
+            patience += 1
+            if patience > PATIENCE:
+                print('Early stopping'); break
+
+    plot_metrics(train_hist, val_hist)
+
+    test_loader = get_loader(test_df, label_cols, tokenizer)
+    run_epoch(model, test_loader, desc='Test')
+
+if __name__ == '__main__':
+    main()
