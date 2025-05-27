@@ -1,0 +1,31 @@
+from models.base.model_type import ModelType
+from models.base.roberta.multilabel_roberta_model import MultilabelRobertaModel
+from models.const.propaganda import PropagandaTechniqueInfo, PROPAGANDA_TECHNIQUES, FALLBACK_TECHNIQUE
+from typing import override
+
+
+class PropagandaModel(MultilabelRobertaModel):
+    def __init__(self, model_name="mmaksymko/roberta-ukr-propaganda-multilabel"):
+        super().__init__(ModelType.PROPAGANDA, model_name, 128)
+
+    
+    @override
+    def infer(self, input: str) -> list[tuple[PropagandaTechniqueInfo, float]]:
+        result = super().infer(input)
+        label_scores = [(info, score) for (label, info), score in zip(PROPAGANDA_TECHNIQUES.items(), result)]
+        sorted_label_scores = sorted(label_scores, key=lambda x: x[1], reverse=True)
+        return sorted_label_scores
+    
+    @override
+    def format_output(self, result: list[tuple[PropagandaTechniqueInfo, float]]) -> str:
+        positive = [(info, score) for info, score in result if score >= self.threshold]
+        
+        return (
+            f'{FALLBACK_TECHNIQUE.description} {FALLBACK_TECHNIQUE.emoji}'
+            if not positive else
+            '\n\n'.join(
+                f"• {info.name} {info.emoji}\n"
+                f"  ─ {info.description}"
+                for info, score in positive
+            )
+        )
