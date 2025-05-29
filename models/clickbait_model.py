@@ -3,7 +3,7 @@ import re
 import numpy as np
 from models.base.svm_model import SVMModel
 from models.base.model_type import ModelType
-from models.const.clickbait import CLICKBAITS, KNOWN_ABBREVIATIONS, EMOTIONAL_EMOJIS, EMOJIS_REGEX
+from models.const.clickbait import KNOWN_ABBREVIATIONS, EMOTIONAL_EMOJIS, EMOJIS_REGEX
 from typing import override
 
 from models.base.nlp import nlp
@@ -37,13 +37,6 @@ class ClickbaitModel(SVMModel):
 
         verdict = verdict + self.__calculate_caps_fine(headline) + self.__calculate_emoji_fine(headline)        
         return min(verdict, 0.999)
-
-    @override
-    def format_output(self, result: float) -> str:
-        verdict = result >= self.threshold
-        info = CLICKBAITS[verdict]
-        probability = result if verdict else 1 - result
-        return f"Вердикт: {info.name} {info.emoji}\n\nОпис: {info.desсription}\n\nЙмовірність: {probability:.2%}"
 
     def __calculate_caps_fine(self, headline: str) -> str:
         caps = [word for word in headline.split() if (word.isupper() and word not in KNOWN_ABBREVIATIONS and len(word) > 3) or '!' in word]

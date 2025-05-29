@@ -1,11 +1,12 @@
 import logging
+from newspaper import Article
+
 from models.base.models import models
 from models.base.model_type import ModelType
-from newspaper import Article
+from models.const.fakes import FAKES_ML
 import service.pinecone_service as ps
 from service.openai_service import analyze_fake, extract_claims
 from service.analytics_service import get_or_create_article
-
 from repositories.fakes_repository import save_fake_ml, save_fake_db
 
 model = models[ModelType.FAKE_NEWS]
@@ -16,7 +17,7 @@ def ml_process(article: Article) -> str:
     save_fake_ml(get_or_create_article(article), result)
     
     logging.info(f"Fakes result: {result}")
-    return model.format_output(result)
+    return format_ml_output(result)
 
 def db_process(article: Article) -> str:
     claims = [article.title]
@@ -34,3 +35,14 @@ def db_process(article: Article) -> str:
 
 def add_fake(fake: str) -> None:
     ps.upsert(fake)
+    
+def format_ml_output(result: float) -> str:
+    verdict = model.get_verdict(result)    
+    result = result if verdict else 1 - result
+    info = FAKES_ML[verdict]
+    
+    return (
+        f"Вердикт: {info.name} {info.emoji}\n\n"
+        f"Опис: {info.description}\n\n"
+        f"Ймовірність: {result:.2%}"
+    )
