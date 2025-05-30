@@ -6,11 +6,11 @@ load_dotenv('.env.local', override=True)
 
 import logging
 import logging_config
-from handlers.admin_handler import AdminHandler
 import sql
 
 from telegram.ext import ApplicationBuilder
 
+from handlers.admin_handler import AdminHandler
 from handlers.start_handler import StartHandler
 from handlers.analytics_handler import AnalyticsHandler
 
