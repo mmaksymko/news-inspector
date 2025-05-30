@@ -16,10 +16,10 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-RUN conda create -n app_env python=3.11 -y \
-    && conda run -n app_env pip install --no-cache-dir -r requirements.txt
+RUN conda create -n inspector_env python=3.11 -y \
+    && conda run -n inspector_env pip install --no-cache-dir -r requirements.txt
 
-ENV PATH="/opt/conda/envs/app_env/bin:$PATH"
+ENV PATH="/opt/conda/envs/inspector_env/bin:$PATH"
 
 COPY . .
 

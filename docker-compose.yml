@@ -1,0 +1,13 @@
+services:
+  news-inspector:
+    image: mmaksymko/news-inspector:RELEASE-1.0.0
+    container_name: news-inspector
+    volumes:
+      - inspector_data:/app/inspector.db
+    env_file:
+      - .env
+      - .env.local
+    restart: unless-stopped
+
+volumes:
+  inspector_data:
