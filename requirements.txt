@@ -11,7 +11,7 @@ orjson==3.10.18
 pandas==2.1.4
 pinecone==7.0.2
 nltk==3.9.1
-scikit-learn==1.6.1
+scikit-learn==1.5.1
 scipy==1.15.3
 spacy==3.8.7
 SQLAlchemy==2.0.41
