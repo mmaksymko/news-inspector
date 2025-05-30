@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from uuid import uuid4
@@ -15,7 +16,7 @@ index = cone.Index(INDEX_NAME)
 tokenizer = AutoTokenizer.from_pretrained(PINECONE_MODEL_NAME)
 model = AutoModel.from_pretrained(PINECONE_MODEL_NAME)
 
-def encode_text(text) -> np.ndarray:
+def encode_text(text: str) -> np.ndarray:
     """
     Encodes a list of texts into 1024-dimensional vectors using the multilingual-e5-large model.
     """
@@ -54,3 +55,21 @@ def find_similar(query_text, top_k):
     logging.info(f"Matches: {query_results['matches']}")
         
     return query_results
+
+async def find_similar_batch(claims, top_k=5):
+    async_index = await get_async_index()
+
+    async def query_one(claim):
+        result = await async_index.query(
+            vector=encode_text(claim).tolist(),
+            top_k=top_k,
+            include_metadata=True,
+        )
+        return result
+
+    tasks = [query_one(claim) for claim in claims]
+    return await asyncio.gather(*tasks)
+
+async def get_async_index():
+    host = cone.describe_index(INDEX_NAME).host
+    return cone.IndexAsyncio(host=host)

@@ -1,4 +1,5 @@
 from functools import wraps
+from pathlib import Path
 import logging
 import os
 import sqlite3
@@ -6,8 +7,11 @@ import sqlite3
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DB_FILENAME = os.path.join(os.path.dirname(__file__), "inspector.db")
-SQL_SCRIPT = os.path.join(os.path.dirname(__file__), "resources", "sql", "init.sql")
+DB_FOLDER = Path("data")
+DB_FOLDER.mkdir(parents=True, exist_ok=True)
+
+DB_FILENAME = DB_FOLDER / "inspector.db"
+SQL_SCRIPT = Path(__file__).parent / "resources" / "sql" / "init.sql"
 
 if not os.path.exists(DB_FILENAME):
     conn = sqlite3.connect(DB_FILENAME)

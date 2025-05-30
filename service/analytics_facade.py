@@ -7,8 +7,8 @@ from newspaper import Article
 def fake_news_detection(article: Article):
     return fakes_service.ml_process(article)
 
-def database_fake_news_detection(article: Article):
-    return fakes_service.db_process(article)
+async def database_fake_news_detection(article: Article):
+    return await fakes_service.db_process(article)
 
 def propaganda_detection(article: Article):
     return propaganda_service.process(article)

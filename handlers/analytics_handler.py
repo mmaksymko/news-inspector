@@ -182,7 +182,7 @@ class AnalyticsHandler:
             include = "db"
         else:
             await query.edit_message_text("🔎 Перевіряю по базі фейків…")
-            result = analytics.database_fake_news_detection(article)
+            result = await analytics.database_fake_news_detection(article)
             include = "algo"
             
         include = { text: f"{self.FAKE_PREFIX}:{prefix}" for prefix, text in self.fake_actions.items() if prefix != method }

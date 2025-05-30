@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv('.env', override=True)
-load_dotenv('.env.local', override=True)
+if os.getenv('ENVIRONMENT', '').lower() == 'local':
+    load_dotenv('.env.local', override=True)
 
 import logging
 import logging_config

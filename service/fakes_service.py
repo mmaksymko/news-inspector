@@ -1,4 +1,5 @@
 import logging
+import os
 from newspaper import Article
 
 from models.base.models import models
@@ -9,6 +10,7 @@ from service.openai_service import analyze_fake, extract_claims
 from service.analytics_service import get_or_create_article
 from repositories.fakes_repository import save_fake_ml, save_fake_db
 
+MAX_CLAIMS = os.getenv("MAX_CLAIMS", 10)
 model = models[ModelType.FAKE_NEWS]
 
 def ml_process(article: Article) -> str:
@@ -19,12 +21,13 @@ def ml_process(article: Article) -> str:
     logging.info(f"Fakes result: {result}")
     return format_ml_output(result)
 
-def db_process(article: Article) -> str:
+async def db_process(article: Article) -> str:
     claims = [article.title]
     if article.text:
-        claims += extract_claims(article.text)
+        claims += extract_claims(article.text, MAX_CLAIMS)
 
-    results = [ ps.find_similar(claim) for claim in claims ]
+    results = await ps.find_similar_batch(claims) if len(claims) > 1 else ps.find_similar(claims[0])
+    logging.info(f"DB fakes results: {results}")
 
     result = analyze_fake(claims, results)
     

@@ -20,7 +20,9 @@ RUN conda create -n inspector_env python=3.11 -y \
     && conda run -n inspector_env pip install --no-cache-dir -r requirements.txt
 
 ENV PATH="/opt/conda/envs/inspector_env/bin:$PATH"
+ENV ENVIRONMENT=prod
 
 COPY . .
+RUN find . -name '*.db' -delete
 
 CMD ["python", "bot.py"]

@@ -1,9 +1,10 @@
 services:
   news-inspector:
-    image: mmaksymko/news-inspector:RELEASE-1.0.0
+    image: mmaksymko/news-inspector:RELEASE-1.0.1
     container_name: news-inspector
     volumes:
-      - inspector_data:/app/inspector.db
+      - inspector_data:/app/data
+      - ~/cache/huggingface:/root/.cache/huggingface
     env_file:
       - .env
       - .env.local
