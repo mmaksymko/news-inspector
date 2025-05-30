@@ -4,7 +4,7 @@ import numpy as np
 from models.base.svm_model import SVMModel
 from models.base.model_type import ModelType
 from models.const.clickbait import KNOWN_ABBREVIATIONS, EMOTIONAL_EMOJIS, EMOJIS_REGEX
-from typing import override
+from typing_extensions import override
 
 from models.base.nlp import nlp
 from utils.log_utils import log_io

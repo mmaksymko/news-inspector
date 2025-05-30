@@ -51,6 +51,6 @@ def find_similar(query_text, top_k):
     )
     
     logging.info(f"Query: {query_text}")
-    logging.info(f"Matches: {query_results["matches"]}")
+    logging.info(f"Matches: {query_results['matches']}")
         
     return query_results

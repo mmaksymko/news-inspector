@@ -1,7 +1,7 @@
 from models.base.model_type import ModelType
 from models.base.roberta.multilabel_roberta_model import MultilabelRobertaModel
 from models.const.propaganda import PropagandaTechniqueInfo, PROPAGANDA_TECHNIQUES
-from typing import override
+from typing_extensions import override
 
 
 class PropagandaModel(MultilabelRobertaModel):

@@ -1,4 +1,5 @@
-from typing import Any, override
+from typing import Any
+from typing_extensions import override
 
 from scipy.special import softmax
 from models.base.svm_model import SVMModel

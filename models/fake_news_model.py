@@ -1,6 +1,6 @@
 from models.base.model_type import ModelType
 from models.base.roberta.binary_roberta_model import BinaryRobertaModel
-from typing import override
+from typing_extensions import override
 
 class FakesModel(BinaryRobertaModel):
     def __init__(self, model_name: str = "mmaksymko/roberta-ukr-fake-news-classifier"):

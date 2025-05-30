@@ -6,7 +6,7 @@ from tqdm import tqdm
 from models.base.model import Model
 from models.base.model_type import ModelType
 from transformers import RobertaTokenizer, RobertaForSequenceClassification
-from typing import override
+from typing_extensions import override
 
 class RobertaModel(Model):
     def __init__(self, model_type: ModelType, model_name: str, max_length = 128):
@@ -20,7 +20,22 @@ class RobertaModel(Model):
     @override
     def infer(self, input: str) -> str:
         super().infer(input)
-        pass
+        with torch.no_grad():
+            inputs = self.tokenizer.encode_plus(
+                input,
+                truncation=True,
+                add_special_tokens=True,
+                max_length=self.max_length,
+                padding='max_length',
+                return_attention_mask=True,
+                return_tensors='pt'
+            )
+
+            input_ids = inputs['input_ids'].to(self.device)
+            attention_mask = inputs['attention_mask'].to(self.device)
+
+            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+            return outputs.logits
 
     
     def embed_sentences(self, sentences):

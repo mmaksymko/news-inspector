@@ -9,7 +9,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.svm import SVC
 from scipy.special import expit
 
-from typing import override
+from typing_extensions import override
 
 class SVMModel(Model):
     def __init__(self, model_type: ModelType, model_name: str):
