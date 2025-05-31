@@ -4,10 +4,6 @@ run-name: Build ${{ github.event.inputs.docker_tag }}
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: 'Which branch to build from'
-        required: true
-        default: 'main'
       docker_tag:
         description: 'Docker tag to apply (e.g. v1.0.0, staging, my-feature-build)'
         required: true
@@ -18,11 +14,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Check out the specified branch
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch }}
+        # By default, this will check out the exact commit/branch that 
+        # triggered the workflow_dispatch. You can omit "with: ref" entirely.
+        #
+        # If you’d rather be explicit, you can replace the above with:
+        #
+        # with:
+        #   ref: ${{ github.ref }}
 
       # 2) Set up Docker Buildx (enables BuildKit + caching)
       - name: Set up Docker Buildx
