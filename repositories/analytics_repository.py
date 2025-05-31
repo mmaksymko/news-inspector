@@ -1,5 +1,5 @@
 from utils.log_utils import log_io
-from sql import with_session
+from config.sql import with_session
 from sqlalchemy.orm import Session
 from entities.analysis import Article, ArticleURL, AnalysisResult
 from repositories.category_repository import get_or_create_category

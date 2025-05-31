@@ -6,8 +6,7 @@ if os.getenv('ENVIRONMENT', '').lower() == 'local':
     load_dotenv('.env.local', override=True)
 
 import logging
-import logging_config
-import sql
+from config import logging_config, sql
 
 from telegram.ext import ApplicationBuilder
 

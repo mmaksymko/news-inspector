@@ -1,5 +1,5 @@
 from sklearn.svm import SVC
-from scrape.news_scraper import scrape
+from resources.scripts.scrape.news_scraper import scrape
 import joblib
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer

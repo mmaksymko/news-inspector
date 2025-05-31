@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from entities.analysis import Article, PropagandaTechnique, AnalysisResultPropaganda
 from repositories.analytics_repository import create_analysis_result
-from sql import with_session
+from config.sql import with_session
 
 PROPAGANDA = 'propaganda'
 

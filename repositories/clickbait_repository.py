@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from entities.analysis import Article, AnalysisResult, ClickbaitResult
 from repositories.analytics_repository import create_analysis_result
-from sql import with_session
+from config.sql import with_session
 from repositories.category_repository import get_or_create_category
 
 CLICKBAIT = 'clickbait'

@@ -4,3 +4,6 @@ data/
 /resources/models
 *.db
 *.local
+.env.test
+
+news_inspector.egg-info

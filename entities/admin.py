@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 
-from sql import Base
+from config.sql import Base
 
 class Admin(Base):
     __tablename__ = 'admin'

@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, Text, ForeignKey, Float, Boolean, DateTime
 from sqlalchemy.orm import declarative_base, relationship
 
-from sql import Base
+from config.sql import Base
 
 class Article(Base):
     __tablename__ = 'article'

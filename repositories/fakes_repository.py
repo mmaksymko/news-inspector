@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from entities.analysis import Article, FakeResult, DBFakeResult
 from repositories.category_repository import get_category
 from repositories.analytics_repository import create_analysis_result
-from sql import with_session
+from config.sql import with_session
 
 FAKE_ML = 'fake_ml'
 FAKE_DB = 'fake_db'

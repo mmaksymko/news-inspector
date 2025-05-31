@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select
 from entities.admin import Admin
 from entities.analysis import AnalysisResult, Category
-from sql import with_session
+from config.sql import with_session
 from sqlalchemy.orm import Session
 
 @with_session

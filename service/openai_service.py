@@ -5,6 +5,7 @@ from openai import NotGiven, NOT_GIVEN
 from openai.types.chat.completion_create_params import ResponseFormat
 
 openai.api_key = os.getenv('OPENAI_TOKEN')
+print("OpenAI API key set:", openai.api_key)
 
 FAKE_ANALYSIS_PROMPT = (
     "You are a friendly, conversational chatbot specialized in fact-checking. You will receive two inputs: "

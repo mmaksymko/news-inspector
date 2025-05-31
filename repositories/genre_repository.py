@@ -1,6 +1,6 @@
 from entities.analysis import Article, Genre, AnalysisResultGenre
 from repositories.analytics_repository import create_analysis_result
-from sql import with_session
+from config.sql import with_session
 from sqlalchemy.orm import Session
 from repositories.category_repository import get_or_create_category
 
