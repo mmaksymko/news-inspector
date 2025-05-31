@@ -1,8 +1,11 @@
 import os
+import dotenv
 import pytest
 from types import SimpleNamespace
 
-BOT_TOKEN = "7978832809:AAEt_-cmF-qjdMbJtIObrSQy5TA3m4YM1Po"
+dotenv.load_dotenv(r'M:\Personal\SE\bachelors\create_reqs\news-inspector\.env.test', override=True)
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+
 os.environ["PINECONE_API_KEY"] = "fake-api-key"
 os.environ["PINECONE_INDEX"] = "fake-index-name"
 os.environ["PINECONE_MODEL_NAME"] = "intfloat/multilingual-e5-large"
