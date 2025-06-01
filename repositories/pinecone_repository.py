@@ -13,6 +13,7 @@ PINECONE_MODEL_NAME = os.getenv('PINECONE_MODEL_NAME')
 
 cone = Pinecone(api_key=PINECONE_API_KEY, environment="us-east-1-aws")
 index = cone.Index(INDEX_NAME)
+host = cone.describe_index(INDEX_NAME).host
 tokenizer = AutoTokenizer.from_pretrained(PINECONE_MODEL_NAME)
 model = AutoModel.from_pretrained(PINECONE_MODEL_NAME)
 
@@ -54,22 +55,39 @@ def find_similar(query_text, top_k):
     logging.info(f"Query: {query_text}")
     logging.info(f"Matches: {query_results['matches']}")
         
-    return query_results
+    return extract_texts_from_results([query_results])
 
-async def find_similar_batch(claims, top_k=5):
-    async_index = await get_async_index()
-
-    async def query_one(claim):
-        result = await async_index.query(
-            vector=encode_text(claim).tolist(),
-            top_k=top_k,
-            include_metadata=True,
-        )
-        return result
-
-    tasks = [query_one(claim) for claim in claims]
-    return await asyncio.gather(*tasks)
-
-async def get_async_index():
+async def find_similar_batch(claims: list[str], top_k: int = 5) -> list[list[str]]:
+    """
+    Finds the top K most similar documents for each string in 'claims',
+    using Pinecone’s AsyncIO client. Returns a list-of-lists of metadata['text'].
+    """
+    # 1) get the Pinecone host
     host = cone.describe_index(INDEX_NAME).host
-    return cone.IndexAsyncio(host=host)
+
+    # 2) open the IndexAsyncio client here—and do NOT exit until after all queries are done
+    async with cone.IndexAsyncio(host=host) as async_index:
+        async def query_one(claim: str) -> list[str]:
+            # Note: encode_text expects a list, so we pass [claim] and then grab [0]
+            vec = encode_text([claim])[0].tolist()
+            response = await async_index.query(
+                vector=vec,
+                top_k=top_k,
+                include_metadata=True,
+            )
+            return extract_texts_from_results([response])
+        tasks = [query_one(c) for c in claims]
+        results: list[list[str]] = await asyncio.gather(*tasks)
+    return results
+
+
+def extract_texts_from_results(results):
+    """
+    Extracts texts from the results returned by Pinecone.
+    """
+# Using a list comprehension to simplify the code
+    print(f"Extracting texts from results: {results}")
+    result =  [match['metadata']['text'] for result in results for match in result['matches']]
+    print(f"Extracted texts: {result}")
+    return result
+    
