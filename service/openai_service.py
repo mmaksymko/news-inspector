@@ -12,7 +12,7 @@ FAKE_ANALYSIS_PROMPT = (
     "a list of known fake claims and a new claim to evaluate. If the new claim clearly repeats or is very "
     "similar to a known fake, classify it as fake; otherwise state that it has not been confirmed as fake yet. "
     "Write your reply as a JSON object with two fields: "
-    "  • \"message\": your natural, concise response in Ukrainian (don’t mention you’re a bot or describe your process), "
+    "  • \"message\": your natural, concise response in Ukrainian (don’t mention you’re a bot or describe your process), you should state which fake claims are mentioned in the text"
     "  • \"verdict\": a boolean (true if the claim is fake, false if it has not been confirmed as fake). "
     "Do not ask the user any questions, nor prompt them to take any actions."
 )
@@ -37,9 +37,9 @@ Article:
 def analyze_fake(statements: list[str], comparison: list[str]) -> str:
     user_content = (
         "Задача:\n"
-        "Відомі фейкові твердження:\n"
+        "Твердження із новини:\n"
         f"{_format_list(statements)}\n\n"
-        "Твердження для перевірки:\n"
+        "Відомі фейкові твердження:\n"
         f"- {_format_list(comparison)}"
     )    
     response = get_completion(FAKE_ANALYSIS_PROMPT, user_content, format="json_object")
