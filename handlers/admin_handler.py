@@ -38,21 +38,20 @@ class AdminHandler:
     def __init__(self, app: Application, analytics_handler: AnalyticsHandler) -> None:
         self.analytics_handler = analytics_handler
 
-        # /admin та його callbacks
         app.add_handler(CommandHandler("admin", self.on_admin))
+
         app.add_handler(
             CallbackQueryHandler(
                 self.on_callback,
-                pattern=f"^{self.ADMIN_PREFIX}:(?!add_fake|analyze).+"
+                pattern=f"^{self.ADMIN_PREFIX}:get_stats$"
             )
         )
 
-        # Новий /menu
         app.add_handler(CommandHandler("menu", self.on_menu))
         app.add_handler(
             CallbackQueryHandler(
                 self.on_menu_callback,
-                pattern=f"^{self.MENU_PREFIX}:.+"
+                pattern=f"^{self.MENU_PREFIX}:admin_panel$"
             )
         )
 
@@ -80,7 +79,6 @@ class AdminHandler:
         )
         app.add_handler(conv_fake, group=1)
 
-        # ConversationHandler для аналізу новин — тепер ловить і admin:analyze, і menu:analyze
         conv_analyze = ConversationHandler(
             entry_points=[
                 CallbackQueryHandler(
@@ -103,7 +101,8 @@ class AdminHandler:
             per_chat=True,
         )
         app.add_handler(conv_analyze, group=1)
-        
+
+
     def _get_handle(self, update: Update, context: CallbackContext) -> str:
         if update.message and update.message.chat:
             return update.message.chat.username
@@ -115,7 +114,7 @@ class AdminHandler:
     async def on_admin(self, update: Update, context: CallbackContext, is_admin: bool) -> None:
         context.user_data['is_admin'] = is_admin or admin_service.is_admin(self._get_handle(update, context))
 
-        if not is_admin:
+        if not context.user_data['is_admin']:
             await update.message.reply_text("🛑 Ви не маєте прав адміністратора.")
             return
 
@@ -131,24 +130,27 @@ class AdminHandler:
     async def on_menu_callback(self, update: Update, context: CallbackContext) -> None:
         query = update.callback_query
         await query.answer()
-        _, action = query.data.split(':', 1)
 
+        _, action = query.data.split(':', 1)
         if action == "admin_panel":
-            # просто перенаправляємо в ту ж саму логіку, що і /admin
             fake_update = Update(
                 update.update_id,
-                message=query.message  # використовуємо той самий меседж-об'єкт
+                message=query.message
             )
-            await self.on_admin(fake_update, context, admin_service.is_admin(self._get_handle(update, context)))
-        elif action == "analyze":
-            # починаємо flow аналізу новини
-            await self._start_analyze(update, context)
+            await self.on_admin(
+                fake_update,
+                context,
+                admin_service.is_admin(self._get_handle(update, context))
+            )
 
     async def on_callback(self, update: Update, context: CallbackContext) -> None:
+        """
+        This handler now ONLY matches 'admin:get_stats'.
+        """
         query = update.callback_query
         await query.answer()
-        _, action = query.data.split(':', 1)
 
+        _, action = query.data.split(':', 1)
         if action == 'get_stats':
             stats = admin_service.get_stats()
             formatted = '\n'.join([
@@ -158,10 +160,13 @@ class AdminHandler:
             await query.edit_message_text(f"📊 Статистика за останні 30 днів:\n{formatted}")
             await self._show_admin_menu(query, context, reply=True)
 
+
+    # ----------------------- FAKE‐ADDING FLOW (unchanged) -----------------------
     async def _start_add_fake(self, update: Update, context: CallbackContext) -> int:
         query = update.callback_query
         await query.answer()
         context.user_data['awaiting_fake'] = True
+
         back_button = InlineKeyboardButton("↩️ Назад", callback_data=f"{self.ADMIN_PREFIX}:back")
         await query.edit_message_text(
             "Введіть твердження для додавання як фейк:",
@@ -172,8 +177,8 @@ class AdminHandler:
     async def _receive_fake(self, update: Update, context: CallbackContext) -> int:
         statement = update.message.text.strip()
         analytics_facade.add_fake(statement)
-        # clear the awaiting flag
         context.user_data.pop('awaiting_fake', None)
+
         await update.message.reply_text("✅ Твердження успішно додано як фейк.")
         await self._show_admin_menu(update, context)
         return ConversationHandler.END
@@ -185,12 +190,13 @@ class AdminHandler:
         await self._show_admin_menu(query, context)
         return ConversationHandler.END
 
+
+    # -------------------- NEWS‐ANALYSIS FLOW --------------------
     async def _start_analyze(self, update: Update, context: CallbackContext) -> int:
         query = update.callback_query
         await query.answer()
         context.user_data['awaiting_news'] = True
         back_button = InlineKeyboardButton("↩️ Назад", callback_data=f"{self.MENU_PREFIX}:back")
-        # Якщо адмін, повернемося в адмін-меню; якщо ні — просто в menu
         await query.edit_message_text(
             "Надішліть текст новини або перешліть повідомлення:",
             reply_markup=InlineKeyboardMarkup([[back_button]])
@@ -205,7 +211,7 @@ class AdminHandler:
         query = update.callback_query
         await query.answer()
         context.user_data.pop('awaiting_news', None)
-        # після скасування повертаємося в /menu чи в адмін-меню
+
         if context.user_data.get('is_admin'):
             await self._show_admin_menu(query, context)
         else:
@@ -213,6 +219,8 @@ class AdminHandler:
             await self._show_menu(query, context, is_admin)
         return ConversationHandler.END
 
+
+    # -------------------- MENU RENDERERS --------------------
     async def _show_admin_menu(self, update_or_query, context: CallbackContext, reply: bool = False) -> None:
         buttons = [
             [InlineKeyboardButton("➕ Додати фейк", callback_data=f"{self.ADMIN_PREFIX}:add_fake")],
@@ -230,10 +238,21 @@ class AdminHandler:
     async def _show_menu(self, update_or_query, context: CallbackContext, is_admin: bool) -> None:
         buttons = []
         if is_admin:
-            buttons.append([InlineKeyboardButton("🧑‍💻 Панель адміністратора", callback_data=f"{self.MENU_PREFIX}:admin_panel")])
-        buttons.append([InlineKeyboardButton("🕵️ Проаналізувати новину", callback_data=f"{self.MENU_PREFIX}:analyze")])
+            buttons.append([
+                InlineKeyboardButton(
+                    "🧑‍💻 Панель адміністратора",
+                    callback_data=f"{self.MENU_PREFIX}:admin_panel"
+                )
+            ])
+        buttons.append([
+            InlineKeyboardButton(
+                "🕵️ Проаналізувати новину",
+                callback_data=f"{self.MENU_PREFIX}:analyze"
+            )
+        ])
         markup = InlineKeyboardMarkup(buttons)
         text = "Оберіть дію:"
+
         if hasattr(update_or_query, 'edit_message_text'):
             await update_or_query.edit_message_text(text=text, reply_markup=markup)
         else:
