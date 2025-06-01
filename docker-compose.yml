@@ -1,6 +1,6 @@
 services:
   news-inspector:
-    image: mmaksymko/news-inspector:RELEASE-1.0.1
+    image: mmaksymko/news-inspector:1.0.2
     container_name: news-inspector
     volumes:
       - inspector_data:/app/data

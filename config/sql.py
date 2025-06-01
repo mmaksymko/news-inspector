@@ -11,7 +11,7 @@ DB_FOLDER = Path("data")
 DB_FOLDER.mkdir(parents=True, exist_ok=True)
 
 DB_FILENAME = DB_FOLDER / "inspector.db"
-SQL_SCRIPT = Path(__file__).parent / "resources" / "sql" / "init.sql"
+SQL_SCRIPT = Path(__file__).parent.parent / "resources" / "sql" / "init.sql"
 
 if not os.path.exists(DB_FILENAME):
     conn = sqlite3.connect(DB_FILENAME)
