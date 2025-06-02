@@ -16,7 +16,7 @@ def propaganda_detection(article: Article):
 def clickbait_detection(article: Article):
     return clickbait_service.process(article)
 
-def category_classification(article: Article):
+def genre_classification(article: Article):
     return genres_service.process(article)
 
 def add_fake(fake: str):

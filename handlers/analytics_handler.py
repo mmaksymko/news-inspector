@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Callable
 from telegram import (
@@ -26,7 +27,7 @@ class AnalyticsHandler:
         "🚨 Перевірити на фейк": "fake_news",
         "🏴 Виявити пропаганду": analytics.propaganda_detection,
         "⚠️ Перевірити клікбейт": analytics.clickbait_detection,
-        "🏷️ Класифікувати за жанром": analytics.category_classification
+        "🏷️ Класифікувати за жанром": analytics.genre_classification
     }
 
     def __init__(self, app: Application) -> None:
@@ -161,10 +162,10 @@ class AnalyticsHandler:
             await query.edit_message_text("Оберіть метод перевірки фейку:\n", reply_markup=InlineKeyboardMarkup(fake_buttons))
             return
 
-        # Execute analytics function
-        func = self.ANALYTICS_ACTIONS[label]  # type: ignore
+        func = self.ANALYTICS_ACTIONS[label]
+        logging.info(f"Processing article: {article}")
         await query.edit_message_text(f"Виконую “{label}”…")
-        result = func(article)  # type: ignore
+        result = func(article)
         await query.message.reply_text(f"Результат аналізу:\n{result}")
         await self._offer_other_analytics(query, exclude=label)
 
