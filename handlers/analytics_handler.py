@@ -41,7 +41,7 @@ class AnalyticsHandler:
         }
         
         # Text messages handler
-        text_filter = filters.TEXT & ~filters.COMMAND
+        text_filter = (filters.FORWARDED | filters.TEXT) & ~filters.COMMAND 
         app.add_handler(MessageHandler(text_filter, self.on_text), group=0)
 
         # Callback queries for our prefixes

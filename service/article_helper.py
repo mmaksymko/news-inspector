@@ -44,7 +44,7 @@ def create_from_message(message: Message) -> Article:
         return (content.strip() if content else None, su.remove_junk(body.strip()) if body else None)
         
     article = Article('', language='uk')
-    article.title, article.text = parse_message(message.text)
+    article.title, article.text = parse_message(message.text or message.caption)
     article.source_url = get_redirect_chat(message) or message.chat.username
     article.meta_data['source'] = 'telegram'
     # article.publish_date = extract from message if forwarded else None
