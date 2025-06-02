@@ -126,7 +126,7 @@ class AnalyticsHandler:
         await self._show_menu(update_or_query, context)
 
     async def _handle_url(self, query: CallbackQuery, context: CallbackContext) -> None:
-        encoded = query.data.split("", 1)[1]
+        encoded = query.data.split(":", 1)[1]
         raw = decode_url(encoded)
         await self._process_url(query, context, raw)
 
