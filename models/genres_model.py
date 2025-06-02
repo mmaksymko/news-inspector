@@ -26,7 +26,7 @@ class GenresModel(SVMModel):
 
     @classmethod
     def preprocess(cls, article: str) -> str:
-        return ' '.join([token.lemma_ for token in nlp(article) if token.pos_ in ('NOUN', 'VERB', 'ADJ', 'ADV')])
+        return ' '.join([token.lemma_ for token in nlp(article) if token.pos_ in ('NOUN', 'ADJ', 'ADV', 'VERB', 'PROPN')])
     
     @override
     def get_verdict(result: Any) -> bool:

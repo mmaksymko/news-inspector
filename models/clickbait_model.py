@@ -14,7 +14,7 @@ from utils.string_utils import remove_emojis
 class ClickbaitModel(SVMModel):
     def __init__(self, model_name: str = "mmaksymko/svm-ukr-youtube-clickbait-classifier"):
         super().__init__(ModelType.CLICKBAIT, model_name)
-        self.caps_fine = 0.05
+        self.caps_fine = 0.075
         self.emoji_fine = 0.15
         
     @override
@@ -39,8 +39,9 @@ class ClickbaitModel(SVMModel):
         return min(verdict, 0.999)
 
     def __calculate_caps_fine(self, headline: str) -> str:
-        caps = [word for word in headline.split() if (word.isupper() and word not in KNOWN_ABBREVIATIONS and len(word) > 3) or '!' in word]
-        return len(caps) * self.caps_fine
+        caps = [word for word in headline.split() if (word.isupper() and word not in KNOWN_ABBREVIATIONS and len(word) > 3)]
+        exclamation_marks = headline.count('!')
+        return (len(caps) + exclamation_marks) * self.caps_fine
 
     def __calculate_emoji_fine(self, headline: str) -> str:
         emoji_count = sum(1 for char in headline if char in EMOTIONAL_EMOJIS)
@@ -55,5 +56,5 @@ class ClickbaitModel(SVMModel):
         return ' '.join(
             remove_emojis(token.lemma_)
             for token in nlp(headline)
-            if token.pos_ in ('NOUN', 'ADJ', 'ADV', 'VERB')
+            if token.pos_ in ('NOUN', 'ADJ', 'ADV', 'VERB', 'PROPN')
         )
