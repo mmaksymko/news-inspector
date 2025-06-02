@@ -14,18 +14,21 @@ EXCLUDED_URL_PREFIXES = tuple(
 
 @log_io()
 def create_from_url(url: str) -> str:
-    article = Article(url, language='uk')
-    article.download()
-    article.parse()
-    article.text = su.remove_junk(article.text)
-    article.source_url = article.source_url.removeprefix('https://').removeprefix('http://').removeprefix('www.')
-    article.meta_data['source'] = 'url'
+    try:
+        article = Article(url, language='uk')
+        article.download()
+        article.parse()
+        article.text = su.remove_junk(article.text)
+        article.source_url = article.source_url.removeprefix('https://').removeprefix('http://').removeprefix('www.')
+        article.meta_data['source'] = 'url'
 
-    # print('Authors: ' + ', '.join(article.authors))
-    # print('Top image: ' + article.top_image)
-    # print('Is media news: ' + article.is_media_news())
-    # print("Publish date: " + article.publish_date.strftime('%Y-%m-%d %H:%M:%S') if article.publish_date else "No publish date")
-    return article
+        # print('Authors: ' + ', '.join(article.authors))
+        # print('Top image: ' + article.top_image)
+        # print('Is media news: ' + article.is_media_news())
+        # print("Publish date: " + article.publish_date.strftime('%Y-%m-%d %H:%M:%S') if article.publish_date else "No publish date")
+        return article
+    except Exception as e:
+        return None
 
 @log_io()
 def create_from_message(message: Message) -> Article:
