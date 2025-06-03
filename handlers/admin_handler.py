@@ -204,8 +204,8 @@ class AdminHandler:
         return self.AWAITING_NEWS
 
     async def _receive_news(self, update: Update, context: CallbackContext) -> int:
-        await self.analytics_handler._handle_message_article(update, context)
         context.user_data.pop('awaiting_news', None)
+        await self.analytics_handler.on_text(update, context)
         return ConversationHandler.END
 
     async def _cancel_analyze(self, update: Update, context: CallbackContext) -> int:

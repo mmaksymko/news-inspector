@@ -11,6 +11,10 @@ from service.analytics_service import get_or_create_article
 from repositories.fakes_repository import save_fake_ml, save_fake_db
 
 MAX_CLAIMS = os.getenv("MAX_CLAIMS", 10)
+VERDICT_EMOJI = {
+    False: "✅",
+    True: "❌"
+}
 model = models[ModelType.FAKE_NEWS]
 
 def ml_process(article: Article) -> str:
@@ -34,7 +38,7 @@ async def db_process(article: Article) -> str:
     save_fake_db(get_or_create_article(article), result)
 
     logging.info(f"DB fakes result: {result}")    
-    return result["message"]
+    return f'{VERDICT_EMOJI[result["verdict"]]} {result["message"]}'
 
 def add_fake(fake: str) -> None:
     ps.upsert(fake)
